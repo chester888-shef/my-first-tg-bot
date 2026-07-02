@@ -1,0 +1,8 @@
+
+.env
+config.py
+secrets.py
+.idea
+__pycache__/
+*.db
+.venv/

@@ -3,7 +3,6 @@ def income_f(income_message):
         income = float(income_message)
         if income > 0:
             return income
-            #заносимо в базу даних
     except ValueError:
         return 0
 
@@ -11,10 +10,6 @@ def expense_f(expense_message, category_message):
         try:
             expense = float(expense_message)
             if expense > 0:
-                #if category_message == 'На себе':
-                    #то заносимо в категорію відповідну
-                #else:
-                    #то заносимо в категорію витрати
                 return expense
         except ValueError:
             return 0
@@ -28,3 +23,16 @@ def target_f(target_message):
     except ValueError:
         return 0
 
+def get_stat_all(rows):
+    expense_all_me = []
+    expense_all_valya = []
+    income_all = []
+    for row in rows:
+        if row[4] == 'На себе':
+            expense_all_me.append(row[3])
+        elif row[4] == 'На Валю':
+            expense_all_valya.append(row[3])
+        elif row[2] == 'income': 
+            income_all.append(row[3])
+    stat_all = sum(income_all) - sum(expense_all_valya) - sum(expense_all_me)
+    return sum(income_all), sum(expense_all_me) , sum(expense_all_valya) , stat_all

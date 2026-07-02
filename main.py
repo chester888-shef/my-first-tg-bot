@@ -1,8 +1,18 @@
+from unittest import result
+
 import telebot
 import socket
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+TOKEN = os.getenv('TOKEN')
+bot = telebot.TeleBot(TOKEN)
 
 from buttons import main_menu , stats_menu , expense_menu
-from function import income_f , expense_f , target_f
+from function import income_f , expense_f , target_f , get_stat_all
+from database import get_connection,  add_transactions, add_goals, get_statistics, get_current_goal
 
 old_getaddrinfo = socket.getaddrinfo
 def new_getaddrinfo(*args, **kwargs):
@@ -10,8 +20,6 @@ def new_getaddrinfo(*args, **kwargs):
     return [response for response in responses if response[0] == socket.AF_INET]
 socket.getaddrinfo = new_getaddrinfo
 
-TOKEN = 'your token'
-bot = telebot.TeleBot(TOKEN)
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -45,8 +53,10 @@ def ask_income(message):
 def save_income_function(message):
     result = income_f(message.text)
     if result == 0:
-        bot.send_message(message.chat.id ,'Введіть число більше нуля ')
+        error_msg = bot.send_message(message.chat.id ,'Введіть число більше нуля ')
+        bot.register_next_step_handler(error_msg , save_income_function)
     else:
+        add_transactions('MyTee', message.text, 'income')
         bot.send_message(message.chat.id,f'Успішно внесено: {result} грн')
 
 @bot.callback_query_handler(func=lambda call: call.data in ['expense_me', 'expense_valya'])
@@ -54,7 +64,7 @@ def ask_expense(call):
     bot.answer_callback_query(call.id)
     if call.data == 'expense_me':
         category_message = 'На себе'
-    else:
+    elif call.data == 'expense_valya':
         category_message = 'На Валю'
 
     sent_msg = bot.send_message(call.message.chat.id, f'Введіть суму для категорії "{category_message}":')
@@ -63,23 +73,49 @@ def ask_expense(call):
 def save_expense_function(message, category_message):
     result = expense_f(message.text , category_message)
     if result == 0:
-        bot.send_message(message.chat.id ,'Введіть число більше нуля ')
+        error_msg = bot.send_message(message.chat.id ,'Введіть число більше нуля ')
+        bot.register_next_step_handler(error_msg , save_expense_function, category_message)
     else:
-        bot.send_message(message.chat.id,f'У категорію: {category_message}, успішно внесено: {result} грн')
+        add_transactions(category_message, result , 'expense')
+        bot.send_message(message.chat.id,f'У категорію витрат: {category_message}, успішно внесено: {result} грн')
 
 
-@bot.message_handler(func=lambda msg : msg.text == 'Ціль' )
+@bot.message_handler(func=lambda msg: msg.text == 'Ціль')
 def ask_target(message):
-    income_sent_msg = bot.send_message(message.chat.id, 'Введіть суму цілі: ')
-    bot.register_next_step_handler(income_sent_msg, save_target_function)
+    # 1. Дістаємо поточний баланс (використовуємо твій готовий механізм)
+    rows = get_statistics('stats_all')
+    result = get_stat_all(rows)
+    current_balance = result[3]
+
+    current_goal = get_current_goal()
+    if current_goal is not None:
+        current_goal = float(current_goal)
+    if current_goal is None or current_balance >= current_goal:
+
+        if current_goal is not None and current_balance >= current_goal:
+            bot.send_message(message.chat.id, f"Вітаю! Ти успішно досягнув своєї цілі у {current_goal} грн!")
+
+        income_sent_msg = bot.send_message(message.chat.id, 'Введіть суму нової цілі: ')
+        bot.register_next_step_handler(income_sent_msg, save_target_function)
+
+    else:
+        remaining = current_goal - current_balance
+        bot.send_message(
+            message.chat.id,
+            f" У тебе вже є активна ціль: {current_goal} грн.\n"
+            f" Поточний баланс: {current_balance} грн.\n"
+            f" Залишилося накопичити: {remaining} грн.\n\n"
+            f"Нову ціль можна буде встановити тільки після досягнення цієї!"
+        )
 
 def save_target_function(message):
     result = target_f(message.text)
     if result == 0:
-        bot.send_message(message.chat.id, 'Помилка, введіть суму більше нуля')
+       result =  bot.send_message(message.chat.id, 'Помилка, введіть суму більше нуля')
+       bot.register_next_step_handler(result , save_target_function)
     else:
-        # Тут буде логіка успіху
         bot.send_message(message.chat.id, f'Ціль у {result} грн успішно прийнята! ')
+        add_goals(result)
 
 
 @bot.callback_query_handler(func=lambda call: call.data in [ 'stats_week', 'stats_month', 'stats_year', 'stats_all'])
@@ -95,16 +131,23 @@ def handle_stats_selection(call):
     elif call.data == 'stats_all':
         period = "за весь час"
 
+    rows = get_statistics(call.data)
+    result = get_stat_all(rows)
+
     bot.send_message(
         call.message.chat.id,
-        f"Запит прийнято! Тут буде виведена твоя статистика за {period}. 📊\n"
-        f"Зовсім скоро ми підключимо базу даних, і цей блок оживе!"
+        f"Ваша статистика за {period}:\n\n"
+        f" Зароблено (Дохід): {result[0]} грн\n"
+        f" Витрати на себе: {result[1]} грн\n"
+        f" Витрати на Валю: {result[2]} грн\n\n"
+        f" Чистий залишок: {result[3]} грн\n"
     )
 
-@bot.callback_query_handler(func=lambda call: call.data in ['target_remaintogoal']
-def hadler_target_function(call):
-    bot.answer_callback_query(call.id)
-
+@bot.message_handler(func = lambda msg: msg.text =='Баланс')
+def ask_balance(message):
+    rows = get_statistics('stats_all')
+    result = get_stat_all(rows)
+    bot.send_message(message.chat.id, f'Ваш поточний баланс становить {result[3]} грн. Але справжні вершини ще попереду)' )
 
 
 
