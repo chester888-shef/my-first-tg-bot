@@ -12,7 +12,7 @@ bot = telebot.TeleBot(TOKEN)
 
 from buttons import main_menu , stats_menu , expense_menu
 from function import income_f , expense_f , target_f , get_stat_all
-from database import get_connection,  add_transactions, add_goals, get_statistics, get_current_goal
+from database import add_transactions, add_goals, get_statistics, get_current_goal
 
 old_getaddrinfo = socket.getaddrinfo
 def new_getaddrinfo(*args, **kwargs):
@@ -54,10 +54,11 @@ def save_income_function(message):
     result = income_f(message.text)
     if result == 0:
         error_msg = bot.send_message(message.chat.id ,'Введіть число більше нуля ')
-        bot.register_next_step_handler(error_msg , save_income_function)
+        bot.register_next_step_handler(error_msg , save_income_function ,)
     else:
-        add_transactions('MyTee', message.text, 'income')
-        bot.send_message(message.chat.id,f'Успішно внесено: {result} грн')
+        add_transactions('MyTee', message.text, 'income', message.chat.id)
+        bot.send_message(message.chat.id,f'До вашого балансу успішно внесено: {result} грн, вітаємо з новими перемогами!')
+
 
 @bot.callback_query_handler(func=lambda call: call.data in ['expense_me', 'expense_valya'])
 def ask_expense(call):
@@ -76,14 +77,13 @@ def save_expense_function(message, category_message):
         error_msg = bot.send_message(message.chat.id ,'Введіть число більше нуля ')
         bot.register_next_step_handler(error_msg , save_expense_function, category_message)
     else:
-        add_transactions(category_message, result , 'expense')
+        add_transactions(category_message, result , 'expense',message.chat.id)
         bot.send_message(message.chat.id,f'У категорію витрат: {category_message}, успішно внесено: {result} грн')
 
 
 @bot.message_handler(func=lambda msg: msg.text == 'Ціль')
 def ask_target(message):
-    # 1. Дістаємо поточний баланс (використовуємо твій готовий механізм)
-    rows = get_statistics('stats_all')
+    rows = get_statistics('stats_all',message.chat.id)
     result = get_stat_all(rows)
     current_balance = result[3]
 
@@ -96,7 +96,7 @@ def ask_target(message):
             bot.send_message(message.chat.id, f"Вітаю! Ти успішно досягнув своєї цілі у {current_goal} грн!")
 
         income_sent_msg = bot.send_message(message.chat.id, 'Введіть суму нової цілі: ')
-        bot.register_next_step_handler(income_sent_msg, save_target_function)
+        bot.register_next_step_handler(income_sent_msg, save_target_function,)
 
     else:
         remaining = current_goal - current_balance
@@ -112,10 +112,10 @@ def save_target_function(message):
     result = target_f(message.text)
     if result == 0:
        result =  bot.send_message(message.chat.id, 'Помилка, введіть суму більше нуля')
-       bot.register_next_step_handler(result , save_target_function)
+       bot.register_next_step_handler(result, save_target_function)
     else:
         bot.send_message(message.chat.id, f'Ціль у {result} грн успішно прийнята! ')
-        add_goals(result)
+        add_goals(result, message.chat.id)
 
 
 @bot.callback_query_handler(func=lambda call: call.data in [ 'stats_week', 'stats_month', 'stats_year', 'stats_all'])
@@ -131,7 +131,7 @@ def handle_stats_selection(call):
     elif call.data == 'stats_all':
         period = "за весь час"
 
-    rows = get_statistics(call.data)
+    rows = get_statistics(call.data, call.message.chat.id)
     result = get_stat_all(rows)
 
     bot.send_message(
@@ -145,13 +145,19 @@ def handle_stats_selection(call):
 
 @bot.message_handler(func = lambda msg: msg.text =='Баланс')
 def ask_balance(message):
-    rows = get_statistics('stats_all')
+    rows = get_statistics('stats_all', message.chat.id)
     result = get_stat_all(rows)
     bot.send_message(message.chat.id, f'Ваш поточний баланс становить {result[3]} грн. Але справжні вершини ще попереду)' )
 
-
-
 bot.remove_webhook()
 bot.get_updates(offset=-1)
-print("Запуск бота з кнопками... Перевірка зв'язку з Телеграмом...")
+print("Запуск бота з кнопками. Перевірка зв'язку з Телеграмом")
 bot.infinity_polling()
+
+@bot.message_handler(func=lambda message: True)
+def catch_all(message):
+    print(f"Бот почув текст: '{message.text}'")
+
+@bot.callback_query_handler(func=lambda call: True)
+def catch_all_callbacks(call):
+    print(f"Бот почув callback: '{call.data}'")

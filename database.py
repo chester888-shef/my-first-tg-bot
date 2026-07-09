@@ -36,50 +36,48 @@ class OpenDatabase:
              self.conn.close()
 
 
-def add_transactions(category, amount, trans_type):
+def add_transactions (category, amount, trans_type,user_id ):
     try:
         with OpenDatabase() as conn:
                 with conn.cursor() as cursor:
-                    sql = "INSERT INTO transactions (category, amount, type) VALUES (%s, %s, %s)"
-                    cursor.execute(sql, (category, amount, trans_type))
+                    sql = "INSERT INTO transactions (category, amount, type, user_id) VALUES (%s, %s, %s, %s) "
+                    cursor.execute(sql, (category, amount, trans_type, user_id))
                     print('всьо заєбісь ')
     except psycopg2.Error as e:
         print(e)            
 
-def add_goals(amount):
+def add_goals(amount, user_id):
     try:    
         with OpenDatabase() as conn:
                 with conn.cursor() as cursor:
                     sql = "UPDATE goals  SET amount = %s WHERE id = %s "
-                    cursor.execute(sql, (amount,id))
+                    cursor.execute(sql, (amount,user_id))
                 print("чотко всьо  ")
     except psycopg2.Error as e:
                 print(e)
 
 
 
-def get_statistics(period):
+def get_statistics(period, user_id):
     with OpenDatabase() as conn:
         try:
             cursor = conn.cursor()
             if period == 'stats_week':
-                sql = "SELECT*FROM transactions WHERE DATE(date) >= CURRENT_DATE - INTERVAL '7 days'"
+                    sql = "SELECT * FROM transactions WHERE DATE(date) >= CURRENT_DATE - INTERVAL '7 days' AND user_id = %s"
             elif period == 'stats_month':
-                sql = "SELECT*FROM transactions WHERE DATE(date) >= CURRENT_DATE - INTERVAL '30 days'"
+                    sql = "SELECT * FROM transactions WHERE DATE(date) >= CURRENT_DATE - INTERVAL '30 days' AND user_id = %s"
             elif period == 'stats_year':
-                sql = "SELECT*FROM transactions WHERE DATE(date) >= CURRENT_DATE - INTERVAL '365 days'"
+                    sql = "SELECT * FROM transactions WHERE DATE(date) >= CURRENT_DATE - INTERVAL '365 days' AND user_id = %s"
             elif period == 'stats_all':
-                sql = "SELECT * FROM transactions "
-            cursor.execute(sql)
+                    sql = "SELECT * FROM transactions WHERE user_id = %s"
+            cursor.execute(sql, (user_id,))
             rows = cursor.fetchall()
             return rows
 
         except psycopg2.Error as e:
             print(e)
             return []
-        finally:
-            cursor.close()
-            conn.close()
+
 
 
 def get_current_goal():
@@ -96,8 +94,6 @@ def get_current_goal():
         except psycopg2.Error as e:
             print(e)
             return None
-        finally:
-            cursor.close()
-            conn.close()
+
 
 
