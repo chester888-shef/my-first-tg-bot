@@ -4,6 +4,8 @@ import telebot
 import socket
 import os
 from dotenv import load_dotenv
+import threading
+from flask import Flask
 
 load_dotenv()
 
@@ -151,8 +153,14 @@ def ask_balance(message):
 
 bot.remove_webhook()
 bot.get_updates(offset=-1)
-print("Запуск бота з кнопками. Перевірка зв'язку з Телеграмом")
-bot.infinity_polling()
+#частина коду для тогощооб бот нормально працював на сервері
+app = Flask(__name__)
+@app.route('/')
+def index():
+    return "Bot is alive!"
+def run_web():
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
 
 @bot.message_handler(func=lambda message: True)
 def catch_all(message):
@@ -161,3 +169,9 @@ def catch_all(message):
 @bot.callback_query_handler(func=lambda call: True)
 def catch_all_callbacks(call):
     print(f"Бот почув callback: '{call.data}'")
+        
+if __name__ == "__main__":
+    threading.Thread(target=run_web).start()
+print("Запуск бота з кнопками. Перевірка зв'язку з Телеграмом")
+bot.infinity_polling()
+
