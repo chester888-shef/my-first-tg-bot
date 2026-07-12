@@ -2,29 +2,14 @@ import psycopg2
 import os
 from dotenv import load_dotenv
 load_dotenv()
-password =os.getenv('password')
-host = "localhost"
-port = '5432'
-user = ('postgres')
-database = 'finance_bot_db'
 
 class OpenDatabase:
     def __init__(self):
-        self.password = os.getenv('password')
-        self.host = "localhost"
-        self.port = "5432"
-        self.user = "postgres"
-        self.database = "finance_bot_db"   
+        self.db_url = os.getenv('DATABASE_URL')
     def __enter__ (self):   
             try:
                 print("Підключаюсь до бази...")
-                self.conn = psycopg2.connect(
-                    password=self.password,
-                    host=self.host,
-                    port=self.port,
-                    user=self.user,
-                    database=self.database
-                )
+                self.conn = psycopg2.connect(self.db_url)
                 return self.conn   
             except psycopg2.Error as e:
                 print(f"Критична помилка підключення до БД: {e}")
