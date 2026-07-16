@@ -1,4 +1,5 @@
 
+
 import logging
 import os
 import socket
@@ -89,11 +90,18 @@ def save_income_function(message):
     if result == 0:
         error_msg = bot.send_message(message.chat.id, "Введіть число більше нуля")
         bot.register_next_step_handler(error_msg, save_income_function)
-    else:
-        add_transactions(CATEGORY_INCOME, result, "income", message.chat.id)
+        return
+
+    saved = add_transactions(CATEGORY_INCOME, result, "income", message.chat.id)
+    if saved:
         bot.send_message(
             message.chat.id,
             f"До вашого балансу успішно внесено: {result} грн, вітаємо з новими перемогами!",
+        )
+    else:
+        bot.send_message(
+            message.chat.id,
+            "Сталася помилка при збереженні доходу. Спробуйте, будь ласка, ще раз трохи пізніше.",
         )
 
 
@@ -120,11 +128,18 @@ def save_expense_function(message, category_message):
     if result == 0:
         error_msg = bot.send_message(message.chat.id, "Введіть число більше нуля")
         bot.register_next_step_handler(error_msg, save_expense_function, category_message)
-    else:
-        add_transactions(category_message, result, "expense", message.chat.id)
+        return
+
+    saved = add_transactions(category_message, result, "expense", message.chat.id)
+    if saved:
         bot.send_message(
             message.chat.id,
             f"У категорію витрат: {category_message}, успішно внесено: {result} грн",
+        )
+    else:
+        bot.send_message(
+            message.chat.id,
+            "Сталася помилка при збереженні витрати. Спробуйте, будь ласка, ще раз трохи пізніше.",
         )
 
 
@@ -220,7 +235,6 @@ def run_web():
 
 
 def run_bot_forever():
-
     while True:
         try:
             bot.infinity_polling()

@@ -1,4 +1,5 @@
 
+
 import logging
 import os
 
@@ -34,10 +35,12 @@ class OpenDatabase:
             self.conn.rollback()
 
         self.conn.close()
+
         return False
 
 
 def add_transactions(category, amount, trans_type, user_id):
+
     try:
         with OpenDatabase() as conn:
             with conn.cursor() as cursor:
@@ -47,8 +50,10 @@ def add_transactions(category, amount, trans_type, user_id):
                 )
                 cursor.execute(sql, (category, amount, trans_type, user_id))
         logger.info("Транзакцію додано: user_id=%s, %s %s", user_id, trans_type, amount)
+        return True
     except psycopg2.Error:
         logger.exception("Не вдалося додати транзакцію")
+        return False
 
 
 def add_goals(amount, user_id):
