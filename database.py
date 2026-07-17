@@ -1,7 +1,7 @@
 
-
 import logging
 import os
+from urllib.parse import urlsplit, unquote
 
 import psycopg2
 import psycopg2.extras
@@ -14,14 +14,51 @@ logging.basicConfig(level=logging.INFO)
 
 
 class OpenDatabase:
-
     def __init__(self):
-        self.db_url = os.getenv("DATABASE_URL")
+        db_url = os.getenv("DATABASE_URL")
+
+        if db_url:
+            parsed = urlsplit(db_url)
+            self.host = parsed.hostname
+            self.port = parsed.port or 5432
+            self.dbname = (parsed.path or "/postgres").lstrip("/") or "postgres"
+            self.user = unquote(parsed.username) if parsed.username else None
+            self.password = unquote(parsed.password) if parsed.password else None
+        else:
+            self.host = os.getenv("DB_HOST")
+            self.port = os.getenv("DB_PORT", "5432")
+            self.dbname = os.getenv("DB_NAME", "postgres")
+            self.user = os.getenv("DB_USER")
+            self.password = os.getenv("DB_PASSWORD")
+
         self.conn = None
+
+        missing = [
+            name
+            for name, value in [
+                ("host", self.host),
+                ("user", self.user),
+                ("password", self.password),
+            ]
+            if not value
+        ]
+        if missing:
+            raise RuntimeError(
+                f"Не вдалося визначити параметри підключення до БД "
+                f"(відсутні: {', '.join(missing)}). Перевірте, що "
+                f"DATABASE_URL у Render Environment задано і має "
+                f"правильний формат postgresql://user:pass@host:port/db."
+            )
 
     def __enter__(self):
         logger.info("Підключаюсь до бази...")
-        self.conn = psycopg2.connect(self.db_url)
+        self.conn = psycopg2.connect(
+            host=self.host,
+            port=self.port,
+            dbname=self.dbname,
+            user=self.user,
+            password=self.password,
+        )
         return self.conn
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -35,12 +72,10 @@ class OpenDatabase:
             self.conn.rollback()
 
         self.conn.close()
-
         return False
 
 
 def add_transactions(category, amount, trans_type, user_id):
-
     try:
         with OpenDatabase() as conn:
             with conn.cursor() as cursor:
@@ -69,8 +104,10 @@ def add_goals(amount, user_id):
                 """
                 cursor.execute(sql, (user_id, amount))
         logger.info("Ціль оновлено: user_id=%s, amount=%s", user_id, amount)
+        return True
     except psycopg2.Error:
         logger.exception("Не вдалося зберегти ціль")
+        return False
 
 
 def get_statistics(period, user_id):
@@ -104,7 +141,6 @@ def get_statistics(period, user_id):
 
 
 def get_current_goal(user_id):
-
     try:
         with OpenDatabase() as conn:
             with conn.cursor() as cursor:

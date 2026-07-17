@@ -1,5 +1,4 @@
 
-
 import logging
 import os
 import socket
@@ -176,9 +175,16 @@ def save_target_function(message):
     if result == 0:
         error_msg = bot.send_message(message.chat.id, "Помилка, введіть суму більше нуля")
         bot.register_next_step_handler(error_msg, save_target_function)
-    else:
+        return
+
+    saved = add_goals(result, message.chat.id)
+    if saved:
         bot.send_message(message.chat.id, f"Ціль у {result} грн успішно прийнята!")
-        add_goals(result, message.chat.id)
+    else:
+        bot.send_message(
+            message.chat.id,
+            "Сталася помилка при збереженні цілі. Спробуйте, будь ласка, ще раз трохи пізніше.",
+        )
 
 
 @bot.callback_query_handler(
@@ -220,7 +226,6 @@ def catch_all(message):
 def catch_all_callbacks(call):
     logger.info("Бот почув callback: '%s'", call.data)
 
-
 app = Flask(__name__)
 
 
@@ -246,8 +251,11 @@ def run_bot_forever():
 
 
 if __name__ == "__main__":
-    bot.remove_webhook()
-    bot.get_updates(offset=-1)
+    try:
+        bot.remove_webhook()
+        bot.get_updates(offset=-1)
+    except telebot.apihelper.ApiTelegramException as e:
+        logger.warning("Проблема при очищенні updates: %s", e)
 
     threading.Thread(target=run_web, daemon=True).start()
 

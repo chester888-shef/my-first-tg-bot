@@ -1,5 +1,4 @@
 
-
 def _parse_positive_amount(raw_value):
     try:
         amount = float(raw_value)
@@ -24,7 +23,6 @@ def target_f(target_message):
 
 
 def get_stat_all(rows):
-
     expense_all_me = []
     expense_all_valya = []
     income_all = []
