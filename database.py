@@ -1,21 +1,22 @@
+
 import logging
 import os
 from urllib.parse import urlsplit, unquote
- 
+
 import psycopg2
 import psycopg2.extras
 from dotenv import load_dotenv
- 
+
 load_dotenv()
- 
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
- 
- 
+
+
 class OpenDatabase:
     def __init__(self):
         db_url = os.getenv("DATABASE_URL")
- 
+
         if db_url:
             parsed = urlsplit(db_url)
             self.host = parsed.hostname
@@ -29,9 +30,9 @@ class OpenDatabase:
             self.dbname = os.getenv("DB_NAME", "postgres")
             self.user = os.getenv("DB_USER")
             self.password = os.getenv("DB_PASSWORD")
- 
+
         self.conn = None
- 
+
         missing = [
             name
             for name, value in [
@@ -48,12 +49,9 @@ class OpenDatabase:
                 f"DATABASE_URL у Render Environment задано і має "
                 f"правильний формат postgresql://user:pass@host:port/db."
             )
- 
+
     def __enter__(self):
         logger.info("Підключаюсь до бази...")
-        # Кожен параметр передається окремо — пароль ніде не
-        # конкатенується в один рядок, тож спецсимволи в ньому
-        # (@ : / $ ! тощо) нічого не зламають.
         self.conn = psycopg2.connect(
             host=self.host,
             port=self.port,
@@ -62,25 +60,26 @@ class OpenDatabase:
             password=self.password,
         )
         return self.conn
- 
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.conn is None:
             return False
- 
+
         if exc_type is None:
             self.conn.commit()
         else:
             # Був виняток всередині блоку with — не комітимо биту транзакцію
             logger.error("Помилка в транзакції, роблю rollback: %s", exc_val)
             self.conn.rollback()
- 
+
         self.conn.close()
         # False -> не гасимо виняток, хай піде далі й буде оброблений
         # у функції, що викликала with OpenDatabase()
         return False
- 
- 
+
+
 def add_transactions(category, amount, trans_type, user_id):
+
     try:
         with OpenDatabase() as conn:
             with conn.cursor() as cursor:
@@ -94,9 +93,10 @@ def add_transactions(category, amount, trans_type, user_id):
     except psycopg2.Error:
         logger.exception("Не вдалося додати транзакцію")
         return False
- 
- 
+
+
 def add_goals(amount, user_id):
+
     try:
         with OpenDatabase() as conn:
             with conn.cursor() as cursor:
@@ -112,15 +112,15 @@ def add_goals(amount, user_id):
     except psycopg2.Error:
         logger.exception("Не вдалося зберегти ціль")
         return False
- 
- 
+
+
 def get_statistics(period, user_id):
     period_to_interval = {
         "stats_week": "7 days",
         "stats_month": "30 days",
         "stats_year": "365 days",
     }
- 
+
     try:
         with OpenDatabase() as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
@@ -137,13 +137,13 @@ def get_statistics(period, user_id):
                 else:
                     logger.warning("Невідомий період статистики: %s", period)
                     return []
- 
+
                 return cursor.fetchall()
     except psycopg2.Error:
         logger.exception("Не вдалося отримати статистику")
         return []
- 
- 
+
+
 def get_current_goal(user_id):
     try:
         with OpenDatabase() as conn:
@@ -155,3 +155,5 @@ def get_current_goal(user_id):
     except psycopg2.Error:
         logger.exception("Не вдалося отримати поточну ціль")
         return None
+
+

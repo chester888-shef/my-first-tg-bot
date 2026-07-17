@@ -1,4 +1,5 @@
 
+
 import logging
 import os
 import socket
@@ -10,7 +11,13 @@ from flask import Flask
 
 from buttons import main_menu, stats_menu, expense_menu
 from function import income_f, expense_f, target_f, get_stat_all
-from database import add_transactions, add_goals, get_statistics, get_current_goal
+from database import (
+    add_transactions,
+    add_goals,
+    get_statistics,
+    get_current_goal,
+    debug_connection_info,
+)
 
 load_dotenv()
 
@@ -226,6 +233,7 @@ def catch_all(message):
 def catch_all_callbacks(call):
     logger.info("Бот почув callback: '%s'", call.data)
 
+
 app = Flask(__name__)
 
 
@@ -240,6 +248,7 @@ def run_web():
 
 
 def run_bot_forever():
+
     while True:
         try:
             bot.infinity_polling()
@@ -251,6 +260,8 @@ def run_bot_forever():
 
 
 if __name__ == "__main__":
+    debug_connection_info()  
+
     try:
         bot.remove_webhook()
         bot.get_updates(offset=-1)
