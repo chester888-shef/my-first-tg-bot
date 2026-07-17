@@ -1,3 +1,24 @@
+"""
+Telegram-бот "фінансовий помічник".
+
+ЗМІНИ порівняно з оригіналом:
+1. Прибрано непотрібний `from unittest import result` (сторонній,
+   нічим не використовуваний імпорт).
+2. save_income_function тепер пише в базу перевірене число `result`,
+   а не сирий текст `message.text` (раніше було розсинхронізовано
+   з логікою для витрат).
+3. Категорія доходу 'MyTee' (схоже, випадковий плейсхолдер) замінена
+   на змістовну константу CATEGORY_INCOME = 'Дохід'.
+4. Виправлено головний баг запуску: bot.infinity_polling() та print
+   виконувались завжди, незалежно від `if __name__ == "__main__"`,
+   через неправильні відступи. Тепер весь запуск — всередині guard'а.
+5. Обгорнув infinity_polling у цикл з try/except, щоб мережевий збій
+   не "клав" бота назавжди (одна з типових причин, чому такі боти
+   "тихо помирають" на проді).
+6. Дублювання коду "запитати суму -> перевірити -> повторити при
+   помилці" винесено у спільний helper _ask_amount_with_retry.
+7. get_current_goal тепер викликається з user_id (див. database.py).
+"""
 
 import logging
 import os
@@ -10,7 +31,13 @@ from flask import Flask
 
 from buttons import main_menu, stats_menu, expense_menu
 from function import income_f, expense_f, target_f, get_stat_all
-from database import add_transactions, add_goals, get_statistics, get_current_goal
+from database import (
+    add_transactions,
+    add_goals,
+    get_statistics,
+    get_current_goal,
+    debug_connection_info,
+)
 
 load_dotenv()
 
@@ -34,6 +61,13 @@ PERIOD_LABELS = {
     "stats_all": "за весь час",
 }
 
+# Хак для середовищ, де getaddrinfo повертає IPv6-адреси, до яких немає
+# маршруту (типова причина "зависань" підключення на деяких хостингах).
+# Залишено з оригіналу як робоче обхідне рішення, але це саме
+# обхідне рішення на рівні всього процесу (socket module),
+# а не лише для запитів бота — вплине на будь-який код у процесі,
+# що резолвить домени. Якщо є можливість, краще фіксити на рівні
+# мережевих налаштувань хостингу, а не патчити socket.
 old_getaddrinfo = socket.getaddrinfo
 
 
@@ -226,6 +260,8 @@ def catch_all(message):
 def catch_all_callbacks(call):
     logger.info("Бот почув callback: '%s'", call.data)
 
+
+# --- Flask, потрібен лише щоб хостинг бачив "живий" HTTP-порт ---
 app = Flask(__name__)
 
 
@@ -240,6 +276,11 @@ def run_web():
 
 
 def run_bot_forever():
+    """
+    infinity_polling() у telebot вже має власний retry, але додатковий
+    зовнішній цикл лишаю як страховку на випадок непередбаченого
+    падіння (наприклад, необробленого винятку в хендлері).
+    """
     while True:
         try:
             bot.infinity_polling()
@@ -251,10 +292,17 @@ def run_bot_forever():
 
 
 if __name__ == "__main__":
+    debug_connection_info()  # ТИМЧАСОВО: діагностика "куди реально підключається бот"
+
     try:
         bot.remove_webhook()
         bot.get_updates(offset=-1)
     except telebot.apihelper.ApiTelegramException as e:
+        # 409 = десь ще одночасно запущений бот з тим самим токеном
+        # (другий локальний процес, завислий попередній деплой, >1 інстанс).
+        # Не валимо весь процес одразу — infinity_polling нижче теж
+        # зіткнеться з тим самим 409 і піде в retry-цикл run_bot_forever,
+        # замість того, щоб контейнер одразу впав з exit code 1.
         logger.warning("Проблема при очищенні updates: %s", e)
 
     threading.Thread(target=run_web, daemon=True).start()
