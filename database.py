@@ -1,22 +1,21 @@
-
 import logging
 import os
 from urllib.parse import urlsplit, unquote
-
+ 
 import psycopg2
 import psycopg2.extras
 from dotenv import load_dotenv
-
+ 
 load_dotenv()
-
+ 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
-
-
+ 
+ 
 class OpenDatabase:
     def __init__(self):
         db_url = os.getenv("DATABASE_URL")
-
+ 
         if db_url:
             parsed = urlsplit(db_url)
             self.host = parsed.hostname
@@ -30,9 +29,9 @@ class OpenDatabase:
             self.dbname = os.getenv("DB_NAME", "postgres")
             self.user = os.getenv("DB_USER")
             self.password = os.getenv("DB_PASSWORD")
-
+ 
         self.conn = None
-
+ 
         missing = [
             name
             for name, value in [
@@ -49,9 +48,12 @@ class OpenDatabase:
                 f"DATABASE_URL у Render Environment задано і має "
                 f"правильний формат postgresql://user:pass@host:port/db."
             )
-
+ 
     def __enter__(self):
         logger.info("Підключаюсь до бази...")
+        # Кожен параметр передається окремо — пароль ніде не
+        # конкатенується в один рядок, тож спецсимволи в ньому
+        # (@ : / $ ! тощо) нічого не зламають.
         self.conn = psycopg2.connect(
             host=self.host,
             port=self.port,
@@ -60,27 +62,30 @@ class OpenDatabase:
             password=self.password,
         )
         return self.conn
-
+ 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.conn is None:
             return False
-
+ 
         if exc_type is None:
             self.conn.commit()
         else:
+            # Був виняток всередині блоку with — не комітимо биту транзакцію
             logger.error("Помилка в транзакції, роблю rollback: %s", exc_val)
             self.conn.rollback()
-
+ 
         self.conn.close()
+        # False -> не гасимо виняток, хай піде далі й буде оброблений
+        # у функції, що викликала with OpenDatabase()
         return False
-
-
+ 
+ 
 def add_transactions(category, amount, trans_type, user_id):
     try:
         with OpenDatabase() as conn:
             with conn.cursor() as cursor:
                 sql = (
-                    "INSERT INTO transactions (category, amount, type, user_id) "
+                    "INSERT INTO public.transactions (category, amount, type, user_id) "
                     "VALUES (%s, %s, %s, %s)"
                 )
                 cursor.execute(sql, (category, amount, trans_type, user_id))
@@ -89,15 +94,14 @@ def add_transactions(category, amount, trans_type, user_id):
     except psycopg2.Error:
         logger.exception("Не вдалося додати транзакцію")
         return False
-
-
+ 
+ 
 def add_goals(amount, user_id):
-
     try:
         with OpenDatabase() as conn:
             with conn.cursor() as cursor:
                 sql = """
-                    INSERT INTO goals (id, amount)
+                    INSERT INTO public.goals (id, amount)
                     VALUES (%s, %s)
                     ON CONFLICT (id)
                     DO UPDATE SET amount = EXCLUDED.amount
@@ -108,43 +112,43 @@ def add_goals(amount, user_id):
     except psycopg2.Error:
         logger.exception("Не вдалося зберегти ціль")
         return False
-
-
+ 
+ 
 def get_statistics(period, user_id):
     period_to_interval = {
         "stats_week": "7 days",
         "stats_month": "30 days",
         "stats_year": "365 days",
     }
-
+ 
     try:
         with OpenDatabase() as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
                 if period in period_to_interval:
                     sql = (
-                        "SELECT * FROM transactions "
+                        "SELECT * FROM public.transactions "
                         "WHERE DATE(date) >= CURRENT_DATE - INTERVAL %s "
                         "AND user_id = %s"
                     )
                     cursor.execute(sql, (period_to_interval[period], user_id))
                 elif period == "stats_all":
-                    sql = "SELECT * FROM transactions WHERE user_id = %s"
+                    sql = "SELECT * FROM public.transactions WHERE user_id = %s"
                     cursor.execute(sql, (user_id,))
                 else:
                     logger.warning("Невідомий період статистики: %s", period)
                     return []
-
+ 
                 return cursor.fetchall()
     except psycopg2.Error:
         logger.exception("Не вдалося отримати статистику")
         return []
-
-
+ 
+ 
 def get_current_goal(user_id):
     try:
         with OpenDatabase() as conn:
             with conn.cursor() as cursor:
-                sql = "SELECT amount FROM goals WHERE id = %s"
+                sql = "SELECT amount FROM public.goals WHERE id = %s"
                 cursor.execute(sql, (user_id,))
                 row = cursor.fetchone()
             return row[0] if row else None
