@@ -1,5 +1,3 @@
-
-
 import logging
 import os
 import socket
@@ -11,13 +9,7 @@ from flask import Flask
 
 from buttons import main_menu, stats_menu, expense_menu
 from function import income_f, expense_f, target_f, get_stat_all
-from database import (
-    add_transactions,
-    add_goals,
-    get_statistics,
-    get_current_goal,
-    debug_connection_info,
-)
+from database import add_transactions, add_goals, get_statistics, get_current_goal
 
 load_dotenv()
 
@@ -43,20 +35,15 @@ PERIOD_LABELS = {
 
 old_getaddrinfo = socket.getaddrinfo
 
-
 def _ipv4_only_getaddrinfo(*args, **kwargs):
     responses = old_getaddrinfo(*args, **kwargs)
     return [response for response in responses if response[0] == socket.AF_INET]
 
-
 socket.getaddrinfo = _ipv4_only_getaddrinfo
 
-
 def _ask_amount_with_retry(chat_id, prompt, next_step_callback, *extra_args):
-    """Спільна логіка для запиту суми в чаті."""
     sent_msg = bot.send_message(chat_id, prompt)
     bot.register_next_step_handler(sent_msg, next_step_callback, *extra_args)
-
 
 @bot.message_handler(commands=["start"])
 def send_welcome(message):
@@ -67,7 +54,6 @@ def send_welcome(message):
         reply_markup=main_menu(),
     )
 
-
 @bot.message_handler(func=lambda msg: msg.text == "Статистика")
 def handle_stat_btn(message):
     bot.send_message(
@@ -75,7 +61,6 @@ def handle_stat_btn(message):
         "За який період показати звіт?",
         reply_markup=stats_menu(),
     )
-
 
 @bot.message_handler(func=lambda msg: msg.text == "Витрати")
 def handle_expense_btn(message):
@@ -85,11 +70,9 @@ def handle_expense_btn(message):
         reply_markup=expense_menu(),
     )
 
-
 @bot.message_handler(func=lambda msg: msg.text == "Внести дохід")
 def ask_income(message):
     _ask_amount_with_retry(message.chat.id, "Введіть суму доходу: ", save_income_function)
-
 
 def save_income_function(message):
     result = income_f(message.text)
@@ -110,7 +93,6 @@ def save_income_function(message):
             "Сталася помилка при збереженні доходу. Спробуйте, будь ласка, ще раз трохи пізніше.",
         )
 
-
 @bot.callback_query_handler(func=lambda call: call.data in ["expense_me", "expense_valya"])
 def ask_expense(call):
     bot.answer_callback_query(call.id)
@@ -127,7 +109,6 @@ def ask_expense(call):
         save_expense_function,
         category_message,
     )
-
 
 def save_expense_function(message, category_message):
     result = expense_f(message.text, category_message)
@@ -147,7 +128,6 @@ def save_expense_function(message, category_message):
             message.chat.id,
             "Сталася помилка при збереженні витрати. Спробуйте, будь ласка, ще раз трохи пізніше.",
         )
-
 
 @bot.message_handler(func=lambda msg: msg.text == "Ціль")
 def ask_target(message):
@@ -176,7 +156,6 @@ def ask_target(message):
             f"Нову ціль можна буде встановити тільки після досягнення цієї!",
         )
 
-
 def save_target_function(message):
     result = target_f(message.text)
     if result == 0:
@@ -192,7 +171,6 @@ def save_target_function(message):
             message.chat.id,
             "Сталася помилка при збереженні цілі. Спробуйте, будь ласка, ще раз трохи пізніше.",
         )
-
 
 @bot.callback_query_handler(
     func=lambda call: call.data in ["stats_week", "stats_month", "stats_year", "stats_all"]
@@ -213,7 +191,6 @@ def handle_stats_selection(call):
         f" Чистий залишок: {result[3]} грн\n",
     )
 
-
 @bot.message_handler(func=lambda msg: msg.text == "Баланс")
 def ask_balance(message):
     rows = get_statistics("stats_all", message.chat.id)
@@ -223,32 +200,25 @@ def ask_balance(message):
         f"Ваш поточний баланс становить {result[3]} грн. Але справжні вершини ще попереду)",
     )
 
-
 @bot.message_handler(func=lambda message: True)
 def catch_all(message):
     logger.info("Бот почув текст: '%s'", message.text)
-
 
 @bot.callback_query_handler(func=lambda call: True)
 def catch_all_callbacks(call):
     logger.info("Бот почув callback: '%s'", call.data)
 
-
 app = Flask(__name__)
-
 
 @app.route("/")
 def index():
     return "Bot is alive!"
 
-
 def run_web():
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
 
-
 def run_bot_forever():
-
     while True:
         try:
             bot.infinity_polling()
@@ -258,10 +228,7 @@ def run_bot_forever():
 
             time.sleep(5)
 
-
 if __name__ == "__main__":
-    debug_connection_info()  
-
     try:
         bot.remove_webhook()
         bot.get_updates(offset=-1)

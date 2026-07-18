@@ -1,4 +1,3 @@
-
 import logging
 import os
 from urllib.parse import urlsplit, unquote
@@ -12,8 +11,8 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-
 class OpenDatabase:
+
     def __init__(self):
         db_url = os.getenv("DATABASE_URL")
 
@@ -68,18 +67,13 @@ class OpenDatabase:
         if exc_type is None:
             self.conn.commit()
         else:
-            # Був виняток всередині блоку with — не комітимо биту транзакцію
             logger.error("Помилка в транзакції, роблю rollback: %s", exc_val)
             self.conn.rollback()
 
         self.conn.close()
-        # False -> не гасимо виняток, хай піде далі й буде оброблений
-        # у функції, що викликала with OpenDatabase()
         return False
 
-
 def add_transactions(category, amount, trans_type, user_id):
-
     try:
         with OpenDatabase() as conn:
             with conn.cursor() as cursor:
@@ -94,9 +88,7 @@ def add_transactions(category, amount, trans_type, user_id):
         logger.exception("Не вдалося додати транзакцію")
         return False
 
-
 def add_goals(amount, user_id):
-
     try:
         with OpenDatabase() as conn:
             with conn.cursor() as cursor:
@@ -112,7 +104,6 @@ def add_goals(amount, user_id):
     except psycopg2.Error:
         logger.exception("Не вдалося зберегти ціль")
         return False
-
 
 def get_statistics(period, user_id):
     period_to_interval = {
@@ -143,7 +134,6 @@ def get_statistics(period, user_id):
         logger.exception("Не вдалося отримати статистику")
         return []
 
-
 def get_current_goal(user_id):
     try:
         with OpenDatabase() as conn:
@@ -155,5 +145,3 @@ def get_current_goal(user_id):
     except psycopg2.Error:
         logger.exception("Не вдалося отримати поточну ціль")
         return None
-
-

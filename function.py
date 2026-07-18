@@ -1,4 +1,3 @@
-
 def _parse_positive_amount(raw_value):
     try:
         amount = float(raw_value)
@@ -9,18 +8,14 @@ def _parse_positive_amount(raw_value):
         return amount
     return 0.0
 
-
 def income_f(income_message):
     return _parse_positive_amount(income_message)
-
 
 def expense_f(expense_message, category_message=None):
     return _parse_positive_amount(expense_message)
 
-
 def target_f(target_message):
     return _parse_positive_amount(target_message)
-
 
 def get_stat_all(rows):
     expense_all_me = []

@@ -1,6 +1,4 @@
-
 from telebot import types
-
 
 def main_menu():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -17,7 +15,6 @@ def main_menu():
 
     return markup
 
-
 def stats_menu():
     markup = types.InlineKeyboardMarkup()
 
@@ -30,7 +27,6 @@ def stats_menu():
     markup.add(btn_year, btn_all)
 
     return markup
-
 
 def expense_menu():
     markup = types.InlineKeyboardMarkup()
