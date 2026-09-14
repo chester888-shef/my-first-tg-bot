@@ -1,26 +1,37 @@
-Персональний Телеграм-бот для зручного відстеження щоденних витрат та доходів. Проєкт створений для автоматизації особистих фінансів та застосування на практиці архітектурних патернів Python.
+Core Features
 
-Основний функціонал
--Швидке додавання транзакцій (витрати/доходи) за категоріями.
--Перегляд поточної статистики та балансу.
--Обмежений доступ до критичних команд керування базою даних.
+    Quick addition of transactions (expenses/income) by categories.
 
- Технології та Архітектура
-Мова: Python 
-База даних:PostgreSQL
-Бібліотеки:telebot
-Особливості реалізації (Under the hood):
--Структурування коду за принципами ООП.
--Створено власний Контекстний менеджер для безпечного відкриття/закриття з'єднань із базою даних, що унеможливлює витік пам'яті.
--Написані кастомні Декоратори** (наприклад, `@admin_only`) для перевірки прав доступу користувачів за Telegram ID перед виконанням функцій.
+    Viewing current statistics and balance.
 
-Як запустити локально:
+    Restricted access to critical database management commands.
 
-1.Склонуй цей репозиторій:
-   git clone [https://github.com/твоє_посилання_на_репозиторій.git](https://github.com/твоє_посилання_на_репозиторій.git)
-2.Встанови всі необхідні залежності:
-   pip install -r requirements.txt
-3.Створи файл .env у кореневій папці та додай туди токен свого бота:
-  BOT_TOKEN=твій секретний токен в тг
-4.Запусти проєкт:
-python main.py
+Technologies & Architecture
+
+    Language: Python
+
+    Database: PostgreSQL
+
+    Libraries: telebot
+
+Implementation Details (Under the hood):
+
+    Code structuring based on OOP principles.
+
+    Created a custom Context Manager for safe opening/closing of database connections, preventing memory leaks.
+
+    Written custom Decorators (e.g., @admin_only) to verify user access rights by Telegram ID before executing functions.
+
+How to run locally:
+
+    Clone this repository:
+    git clone [https://github.com/your_repository_link.git](https://github.com/your_repository_link.git)
+
+    Install all required dependencies:
+    pip install -r requirements.txt
+
+    Create a .env file in the root folder and add your bot token there:
+    BOT_TOKEN=your_secret_tg_token
+
+    Run the project:
+    python main.py
